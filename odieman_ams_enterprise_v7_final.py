@@ -16,8 +16,8 @@ def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def check_login(username, password, hospital):
-    query = f"SELECT * FROM ams_users WHERE username='{username}' AND active=true"
-    result = supabase.query(query, ttl=0)
+    response = supabase.table("users").select("*").eq("username", username).eq("password", password).eq("hospital", hospital).execute()
+result = response.data
     if not result.empty:
         user = result.iloc[0]
         if user['password_hash'] == hash_password(password) and hospital in user['hospitals']:
