@@ -24,11 +24,13 @@ def check_login(username, password, hospital):
         return None
     response = supabase.table("users").select("*").eq("username", username).eq("password", password).eq("hospital", hospital).execute()
 result = response.data
-    if not result.empty:
-        user = result.iloc[0]
-        if user['password_hash'] == hash_password(password) and hospital in user['hospitals']:
-            return user.to_dict()
-    return None
+    def get_users():
+    response = supabase.table("users").select("*").execute()
+    result = response.data
+    if len(result) > 0:
+        return result
+    else:
+        return []
 
 def log_action(username, action, details):
     supabase.query(f"INSERT INTO audit_log (username, action, details) VALUES ('{username}', '{action}', '{details}')", ttl=0)
