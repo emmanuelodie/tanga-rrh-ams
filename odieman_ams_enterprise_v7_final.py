@@ -7,14 +7,17 @@ import hashlib
 st.set_page_config(page_title="ODIEMAN AMS", layout="wide", page_icon="🏥")
 
 # Supabase connection
-conn = st.connection("supabase", type="sql")
+from supabase import create_client, Client
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def check_login(username, password, hospital):
     query = f"SELECT * FROM ams_users WHERE username='{username}' AND active=true"
-    result = conn.query(query, ttl=0)
+    result = supabase.query(query, ttl=0)
     if not result.empty:
         user = result.iloc[0]
         if user['password_hash'] == hash_password(password) and hospital in user['hospitals']:
@@ -22,7 +25,7 @@ def check_login(username, password, hospital):
     return None
 
 def log_action(username, action, details):
-    conn.query(f"INSERT INTO audit_log (username, action, details) VALUES ('{username}', '{action}', '{details}')", ttl=0)
+    supabase.query(f"INSERT INTO audit_log (username, action, details) VALUES ('{username}', '{action}', '{details}')", ttl=0)
 
 # Login screen
 if 'user' not in st.session_state:
@@ -70,7 +73,7 @@ with tab1:
 
     if st.button("Save Assessment"):
         risk = "High Risk" if abx > 70 else "Medium Risk" if abx > 50 else "Low Risk"
-        conn.query(f"""
+        supabase.query(f"""
             INSERT INTO ward_assessments (ward, antibiotic_pct, injection_pct, generic_pct, risk, hospital, assessed_by)
             VALUES ('{ward}', {abx}, {inj}, {gen}, '{risk}', '{hospital}', '{user['username']}')
         """, ttl=0)
@@ -82,7 +85,7 @@ with tab1:
 
 with tab2:
     st.header("Dashboard - Tanga RRH")
-    df = conn.query(f"SELECT * FROM ward_assessments WHERE hospital='{hospital}' ORDER BY assessed_at DESC LIMIT 50", ttl=0)
+    df = supabase.query(f"SELECT * FROM ward_assessments WHERE hospital='{hospital}' ORDER BY assessed_at DESC LIMIT 50", ttl=0)
     if not df.empty:
         st.dataframe(df[['ward', 'antibiotic_pct', 'risk', 'assessed_by', 'assessed_at']])
         st.metric("Avg Antibiotic %", f"{df['antibiotic_pct'].mean():.1f}%")
@@ -100,7 +103,7 @@ with tab3:
         new_role = st.selectbox("Role", ["Hospital AMS Focal", "Viewer"])
         new_whatsapp = st.text_input("WhatsApp +255...")
         if st.button("Create User"):
-            conn.query(f"""
+            supabase.query(f"""
                 INSERT INTO ams_users (username, password_hash, role, full_name, whatsapp, hospitals, active)
                 VALUES ('{new_user}', '{hash_password(new_pass)}', '{new_role}', '{new_name}', '{new_whatsapp}', '["{hospital}"]', true)
             """, ttl=0)
@@ -108,7 +111,7 @@ with tab3:
             st.success(f"User {new_user} created")
 
         st.subheader("Audit Log")
-        audit = conn.query("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 100", ttl=0)
+        audit = supabase.query("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 100", ttl=0)
         st.dataframe(audit)
     else:
         st.warning("Admin only")
