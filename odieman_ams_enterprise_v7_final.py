@@ -17,6 +17,12 @@ def hash_password(password):
 
 def check_login(username, password, hospital):
     response = supabase.table("users").select("*").eq("username", username).eq("password", password).eq("hospital", hospital).execute()
+    result = response.data
+    if len(result) > 0:
+        return result[0]
+    else:
+        return None
+    response = supabase.table("users").select("*").eq("username", username).eq("password", password).eq("hospital", hospital).execute()
 result = response.data
     if not result.empty:
         user = result.iloc[0]
